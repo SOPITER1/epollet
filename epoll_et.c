@@ -158,6 +158,30 @@ void send_string(clientnext* ctn,char*msg,ssize_t* total)
     memmove(msg,msg+mchr+1,reman);
     *total=reman;
 }
+void getuserlist(clientnext *ctn,char*buff,ssize_t*total,int fd)
+{
+        char userlist[256];
+        memset(userlist,'\0',sizeof(userlist));
+        client *ctest=ctn->hread;
+        ssize_t splen=0;
+        while (ctest!=NULL)
+        {
+        int sn=snprintf(userlist+splen,sizeof(userlist)-splen,"用户%d在线\n",ctest->fd);
+        if (sn<0||sn>(int)(sizeof(userlist)-splen))
+        {
+            break;
+        }
+        splen+=sn;
+        ctest=ctest->next;
+        }
+        send(fd,userlist,strlen(userlist),0);
+        char *p=memchr(buff,'\n',*total);
+        if (p==NULL)return;
+        int mchr=p?(int)(p-buff):-1;
+        ssize_t reman=(*total)-mchr-1;
+        memmove(buff,buff+mchr+1,reman);
+        *total=reman;
+}
 int main(int argc, char const *argv[])
 {
     int serverfd=socket(AF_INET,SOCK_STREAM,0);
@@ -250,7 +274,15 @@ int main(int argc, char const *argv[])
                         ct->total+=n;
                         while(memchr(ct->buff,'\n',ct->total)!=NULL)
                         {
+                            if (strncmp(ct->buff,"/list\n",6)==0)
+                            {
+                                getuserlist(&clientnext,ct->buff,&ct->total,fd);
+                            }
+                            else
+                            {
                             send_string(&clientnext,ct->buff,&ct->total);
+                            }
+                            
                         }
                     }
                     
